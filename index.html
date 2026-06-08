@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Progress Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="page">
+    <!-- Header -->
+    <header class="header">
+      <span class="header-title">UI Organized</span>
+      <span class="header-title">Progress Board</span>
+    </header>
+
+    <!-- Add new progress entry -->
+    <section class="add-card">
+      <h2 class="add-card-title">Add Progress</h2>
+      <form id="entry-form" class="entry-form">
+        <label class="field">
+          <span class="field-label">Week</span>
+          <input type="text" id="week" name="week" placeholder="e.g. Week 1" required />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Description</span>
+          <textarea id="description" name="description" rows="3" placeholder="Description of this week's progress" required></textarea>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Files (images &amp; PDFs)</span>
+          <input type="file" id="files" name="files" accept="image/*,application/pdf" multiple />
+        </label>
+
+        <button type="submit" class="btn-primary">Add Entry</button>
+      </form>
+    </section>
+
+    <!-- Progress entries render here -->
+    <section id="entries" class="entries"></section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
