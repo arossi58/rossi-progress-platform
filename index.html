@@ -11,31 +11,20 @@
 </head>
 <body>
   <main class="page">
+    <!-- Editor access icon button (top-right) -->
+    <button id="editor-btn" class="icon-btn" type="button" title="Editor access" aria-label="Editor access">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" aria-hidden="true">
+        <circle cx="7.5" cy="15.5" r="5.5" />
+        <path d="m21 2-9.6 9.6" />
+        <path d="m15.5 7.5 3 3L22 7l-3-3" />
+      </svg>
+    </button>
+
     <!-- Header -->
     <header class="header">
       <span class="header-title">UI Organized</span>
       <span class="header-title">Progress Board</span>
     </header>
-
-    <!-- Editor sign-in (only needed to ADD entries; viewers ignore this) -->
-    <section class="add-card" id="auth-card">
-      <h2 class="add-card-title">Editor Access</h2>
-      <p class="hint" id="auth-status">
-        To add entries you need a GitHub token. Viewers don't &mdash; they just see the board below.
-      </p>
-      <div class="field" id="token-field">
-        <label class="field-label" for="token">GitHub personal access token</label>
-        <input type="password" id="token" placeholder="ghp_..." autocomplete="off" />
-        <p class="hint">
-          Create one with <strong>Contents: Read and write</strong> access to this repo.
-          It's stored only in your browser (this device), never committed.
-        </p>
-      </div>
-      <div class="auth-actions">
-        <button type="button" class="btn-primary" id="save-token">Save token</button>
-        <button type="button" class="btn-delete" id="clear-token" hidden>Sign out</button>
-      </div>
-    </section>
 
     <!-- Add new progress entry (shown only when signed in) -->
     <section class="add-card" id="add-card" hidden>
@@ -63,6 +52,33 @@
     <!-- Progress entries render here (visible to everyone) -->
     <section id="entries" class="entries"></section>
   </main>
+
+  <!-- Editor access modal -->
+  <div id="modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" type="button" aria-label="Close">&times;</button>
+
+      <!-- Signed-out view: enter token -->
+      <div id="modal-signin">
+        <h2 class="add-card-title" id="modal-title">Editor Access</h2>
+        <p class="hint">
+          Paste a GitHub personal access token with
+          <strong>Contents: Read &amp; write</strong> on this repo. It's stored
+          only in this browser and never committed. Viewers don't need one.
+        </p>
+        <input type="password" id="token" placeholder="github_pat_..." autocomplete="off" />
+        <p class="error" id="token-error" hidden></p>
+        <button class="btn-primary" id="save-token" type="button">Verify &amp; Save</button>
+      </div>
+
+      <!-- Signed-in view -->
+      <div id="modal-signedin" hidden>
+        <h2 class="add-card-title">Editor Access</h2>
+        <p class="hint">You're signed in as an editor on this device.</p>
+        <button class="btn-delete" id="clear-token" type="button">Sign out</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

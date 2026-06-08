@@ -23,12 +23,92 @@ body {
 
 /* ---- Page layout ---- */
 .page {
+  position: relative;
   max-width: 1024px;
   margin: 0 auto;
   padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 37px;
+}
+
+/* ---- Editor icon button ---- */
+.icon-btn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gray-line);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--black);
+  cursor: pointer;
+  z-index: 5;
+}
+
+.icon-btn:hover {
+  background: var(--gray-soft);
+}
+
+/* Signed-in state: filled black */
+.icon-btn.signed-in {
+  background: var(--black);
+  color: var(--white);
+  border-color: var(--black);
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal {
+  position: relative;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 28px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 26px;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: #777;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--black);
+}
+
+.modal input[type="password"] {
+  width: 100%;
+}
+
+.error {
+  font-size: 14px;
+  color: #c0392b;
 }
 
 /* ---- Header ---- */

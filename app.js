@@ -29,9 +29,13 @@ function rawUrl(path) {
 }
 
 /* ---- DOM ---- */
-const authStatus = document.getElementById("auth-status");
-const tokenField = document.getElementById("token-field");
+const editorBtn = document.getElementById("editor-btn");
+const modalOverlay = document.getElementById("modal-overlay");
+const modalClose = document.getElementById("modal-close");
+const modalSignin = document.getElementById("modal-signin");
+const modalSignedin = document.getElementById("modal-signedin");
 const tokenInput = document.getElementById("token");
+const tokenError = document.getElementById("token-error");
 const saveTokenBtn = document.getElementById("save-token");
 const clearTokenBtn = document.getElementById("clear-token");
 const addCard = document.getElementById("add-card");
@@ -53,26 +57,90 @@ function setToken(token) {
 function reflectAuthState() {
   const signedIn = !!getToken();
   addCard.hidden = !signedIn;
-  clearTokenBtn.hidden = !signedIn;
-  tokenField.hidden = signedIn;
-  saveTokenBtn.hidden = signedIn;
-  authStatus.innerHTML = signedIn
-    ? "You're signed in as an editor. Token stored on this device only."
-    : 'To add entries you need a GitHub token. Viewers don’t &mdash; they just see the board below.';
+  editorBtn.classList.toggle("signed-in", signedIn);
+  editorBtn.title = signedIn ? "Editor: signed in" : "Editor access";
+  modalSignin.hidden = signedIn;
+  modalSignedin.hidden = !signedIn;
 }
 
-saveTokenBtn.addEventListener("click", () => {
+/* Verify the token actually works AND has write access to this repo. */
+async function validateToken(token) {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO.owner}/${REPO.name}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+        },
+      }
+    );
+    if (res.status === 401) return { ok: false, message: "Invalid or expired token." };
+    if (res.status === 404)
+      return { ok: false, message: "This token can't access this repository." };
+    if (!res.ok) return { ok: false, message: `GitHub error ${res.status}.` };
+    const json = await res.json();
+    if (!json.permissions || !json.permissions.push)
+      return { ok: false, message: "Token is missing Contents: write access." };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: "Network error: " + e.message };
+  }
+}
+
+/* ---- Modal ---- */
+function openModal() {
+  reflectAuthState(); // show the right panel
+  tokenError.hidden = true;
+  modalOverlay.hidden = false;
+  if (!getToken()) tokenInput.focus();
+}
+
+function closeModal() {
+  modalOverlay.hidden = true;
+  tokenInput.value = "";
+  tokenError.hidden = true;
+}
+
+editorBtn.addEventListener("click", openModal);
+modalClose.addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !modalOverlay.hidden) closeModal();
+});
+
+saveTokenBtn.addEventListener("click", async () => {
   const token = tokenInput.value.trim();
   if (!token) {
-    alert("Please paste a GitHub token first.");
+    tokenError.textContent = "Please paste a GitHub token first.";
+    tokenError.hidden = false;
     return;
   }
+  saveTokenBtn.disabled = true;
+  saveTokenBtn.textContent = "Verifying…";
+  tokenError.hidden = true;
+
+  const result = await validateToken(token);
+
+  saveTokenBtn.disabled = false;
+  saveTokenBtn.textContent = "Verify & Save";
+
+  if (!result.ok) {
+    tokenError.textContent = result.message;
+    tokenError.hidden = false;
+    return;
+  }
+
   setToken(token);
-  tokenInput.value = "";
+  closeModal();
+  loadAndRender(); // refresh using authenticated (fresh) data
 });
 
 clearTokenBtn.addEventListener("click", () => {
-  if (confirm("Sign out and remove the token from this browser?")) setToken("");
+  setToken("");
+  closeModal();
 });
 
 /* ---- GitHub API helpers ---- */
