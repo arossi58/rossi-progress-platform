@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "1780884023949",
+    "week": "Week 1",
+    "description": "Presented the project brief for the UI organized concept.",
+    "files": [
+      {
+        "name": "brief.pdf",
+        "type": "application/pdf",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1780884022148-0-brief.pdf"
+      }
+    ]
+  }
+]
