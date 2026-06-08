@@ -1,55 +1,165 @@
-/* Progress Board — stores entries in the browser's localStorage.
-   Files (images & PDFs) are saved as base64 data URLs so they persist
-   between page loads without needing a server. */
+/* Progress Board
+   --------------------------------------------------------------------------
+   Entries live in this GitHub repo so anyone can view them:
+     - data/entries.json   -> the list of entries (text + file references)
+     - uploads/            -> the uploaded image & PDF files
 
-const STORAGE_KEY = "progress-board-entries";
+   VIEWING is public: the page reads the published files from the repo, no
+   login required.
 
+   ADDING requires a GitHub personal access token with "Contents: Read and
+   write" permission on this repo. The token is stored only in the editor's
+   own browser (localStorage) and is used to commit new entries/files via the
+   GitHub API. It is never written into the repo.
+   -------------------------------------------------------------------------- */
+
+const REPO = {
+  owner: "arossi58",
+  name: "rossi-progress-platform",
+  branch: "main",
+};
+
+const DATA_PATH = "data/entries.json";
+const UPLOAD_DIR = "uploads";
+const TOKEN_KEY = "progress-board-token";
+
+/* Public raw URL for reading a file from the repo (no auth needed) */
+function rawUrl(path) {
+  return `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/${REPO.branch}/${path}`;
+}
+
+/* ---- DOM ---- */
+const authStatus = document.getElementById("auth-status");
+const tokenField = document.getElementById("token-field");
+const tokenInput = document.getElementById("token");
+const saveTokenBtn = document.getElementById("save-token");
+const clearTokenBtn = document.getElementById("clear-token");
+const addCard = document.getElementById("add-card");
 const form = document.getElementById("entry-form");
+const submitBtn = document.getElementById("submit-btn");
 const entriesEl = document.getElementById("entries");
 
-/* ---- Storage helpers ---- */
-function loadEntries() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
+/* ---- Token handling ---- */
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || "";
+}
+
+function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+  reflectAuthState();
+}
+
+function reflectAuthState() {
+  const signedIn = !!getToken();
+  addCard.hidden = !signedIn;
+  clearTokenBtn.hidden = !signedIn;
+  tokenField.hidden = signedIn;
+  saveTokenBtn.hidden = signedIn;
+  authStatus.innerHTML = signedIn
+    ? "You're signed in as an editor. Token stored on this device only."
+    : 'To add entries you need a GitHub token. Viewers don’t &mdash; they just see the board below.';
+}
+
+saveTokenBtn.addEventListener("click", () => {
+  const token = tokenInput.value.trim();
+  if (!token) {
+    alert("Please paste a GitHub token first.");
+    return;
   }
+  setToken(token);
+  tokenInput.value = "";
+});
+
+clearTokenBtn.addEventListener("click", () => {
+  if (confirm("Sign out and remove the token from this browser?")) setToken("");
+});
+
+/* ---- GitHub API helpers ---- */
+function apiUrl(path) {
+  return `https://api.github.com/repos/${REPO.owner}/${REPO.name}/contents/${path}`;
 }
 
-function saveEntries(entries) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+function githubHeaders() {
+  return {
+    Authorization: `Bearer ${getToken()}`,
+    Accept: "application/vnd.github+json",
+  };
 }
 
-/* Read a File object as a base64 data URL */
-function readFileAsDataURL(file) {
+/* UTF-8 safe base64 of a string */
+function toBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+/* Read a File as raw base64 (no data: prefix) for the GitHub API */
+function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve(reader.result.split(",")[1]);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+/* PUT a file into the repo. Returns the API response JSON. */
+async function commitFile(path, base64Content, message, sha) {
+  const body = {
+    message,
+    content: base64Content,
+    branch: REPO.branch,
+  };
+  if (sha) body.sha = sha;
+
+  const res = await fetch(apiUrl(path), {
+    method: "PUT",
+    headers: githubHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`GitHub API ${res.status}: ${detail}`);
+  }
+  return res.json();
+}
+
+/* Fetch the current entries.json + its sha (sha needed to update it). */
+async function fetchEntriesFile() {
+  // Use the API when signed in (always fresh + gives sha); fall back to raw.
+  const token = getToken();
+  if (token) {
+    const res = await fetch(apiUrl(DATA_PATH), { headers: githubHeaders() });
+    if (res.status === 404) return { entries: [], sha: null };
+    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+    const json = await res.json();
+    const content = decodeURIComponent(escape(atob(json.content)));
+    return { entries: JSON.parse(content || "[]"), sha: json.sha };
+  }
+  // Public read for viewers
+  const res = await fetch(`${rawUrl(DATA_PATH)}?cb=${Date.now()}`);
+  if (!res.ok) return { entries: [], sha: null };
+  return { entries: await res.json(), sha: null };
 }
 
 /* ---- Rendering ---- */
 function renderFile(file) {
   const item = document.createElement("div");
   item.className = "file-item";
+  const url = file.url || file.data; // url = repo path, data = legacy fallback
 
-  if (file.type.startsWith("image/")) {
+  if (file.type && file.type.startsWith("image/")) {
     const link = document.createElement("a");
-    link.href = file.data;
+    link.href = url;
     link.target = "_blank";
     link.rel = "noopener";
-
     const img = document.createElement("img");
-    img.src = file.data;
+    img.src = url;
     img.alt = file.name;
     link.appendChild(img);
     item.appendChild(link);
   } else {
-    // PDF (or any non-image)
     const link = document.createElement("a");
-    link.href = file.data;
+    link.href = url;
     link.target = "_blank";
     link.rel = "noopener";
     link.className = "file-pdf";
@@ -60,7 +170,7 @@ function renderFile(file) {
   const name = document.createElement("div");
   name.className = "file-name";
   const nameLink = document.createElement("a");
-  nameLink.href = file.data;
+  nameLink.href = url;
   nameLink.target = "_blank";
   nameLink.rel = "noopener";
   nameLink.textContent = file.name;
@@ -70,36 +180,29 @@ function renderFile(file) {
   return item;
 }
 
-function renderEntries() {
-  const entries = loadEntries();
+function renderEntries(entries) {
   entriesEl.innerHTML = "";
+
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "hint";
+    empty.textContent = "No progress entries yet.";
+    entriesEl.appendChild(empty);
+    return;
+  }
 
   entries.forEach((entry) => {
     const wrapper = document.createElement("article");
     wrapper.className = "entry";
 
-    // Header row: week title + delete button
-    const headerRow = document.createElement("div");
-    headerRow.className = "entry-header";
-
     const week = document.createElement("h3");
     week.className = "entry-week";
     week.textContent = entry.week;
 
-    const del = document.createElement("button");
-    del.className = "btn-delete";
-    del.textContent = "Delete";
-    del.addEventListener("click", () => deleteEntry(entry.id));
-
-    headerRow.appendChild(week);
-    headerRow.appendChild(del);
-
-    // Description
     const desc = document.createElement("p");
     desc.className = "entry-description";
     desc.textContent = entry.description;
 
-    // Files area
     const files = document.createElement("div");
     files.className = "entry-files";
     if (entry.files && entry.files.length) {
@@ -108,57 +211,80 @@ function renderEntries() {
       files.classList.add("empty");
     }
 
-    wrapper.appendChild(headerRow);
+    wrapper.appendChild(week);
     wrapper.appendChild(desc);
     wrapper.appendChild(files);
     entriesEl.appendChild(wrapper);
   });
 }
 
-/* ---- Actions ---- */
-function deleteEntry(id) {
-  if (!confirm("Delete this entry?")) return;
-  const entries = loadEntries().filter((e) => e.id !== id);
-  saveEntries(entries);
-  renderEntries();
+async function loadAndRender() {
+  try {
+    const { entries } = await fetchEntriesFile();
+    renderEntries(entries);
+  } catch (err) {
+    entriesEl.innerHTML =
+      '<p class="hint">Could not load entries: ' + err.message + "</p>";
+  }
+}
+
+/* ---- Publish a new entry ---- */
+function safeName(name) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!getToken()) {
+    alert("Save your GitHub token first.");
+    return;
+  }
 
   const week = document.getElementById("week").value.trim();
   const description = document.getElementById("description").value.trim();
   const fileInput = document.getElementById("files");
 
-  const files = [];
-  for (const file of fileInput.files) {
-    files.push({
-      name: file.name,
-      type: file.type,
-      data: await readFileAsDataURL(file),
-    });
-  }
-
-  const entries = loadEntries();
-  entries.push({
-    id: Date.now().toString(),
-    week,
-    description,
-    files,
-  });
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Publishing…";
 
   try {
-    saveEntries(entries);
-  } catch (err) {
-    alert(
-      "Could not save — the files may be too large for browser storage. Try smaller or fewer files."
-    );
-    return;
-  }
+    // 1) Upload each file into uploads/
+    const fileRefs = [];
+    let i = 0;
+    for (const file of fileInput.files) {
+      const stamp = `${Date.now()}-${i++}`;
+      const path = `${UPLOAD_DIR}/${stamp}-${safeName(file.name)}`;
+      const base64 = await readFileAsBase64(file);
+      await commitFile(path, base64, `Add file ${file.name}`);
+      fileRefs.push({ name: file.name, type: file.type, url: rawUrl(path) });
+    }
 
-  form.reset();
-  renderEntries();
+    // 2) Append the entry to entries.json and commit it
+    const { entries, sha } = await fetchEntriesFile();
+    entries.push({
+      id: Date.now().toString(),
+      week,
+      description,
+      files: fileRefs,
+    });
+    await commitFile(
+      DATA_PATH,
+      toBase64(JSON.stringify(entries, null, 2)),
+      `Add progress entry: ${week}`,
+      sha
+    );
+
+    form.reset();
+    renderEntries(entries);
+    alert("Published! It may take a moment to appear for other viewers.");
+  } catch (err) {
+    alert("Publish failed:\n" + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Publish Entry";
+  }
 });
 
 /* ---- Init ---- */
-renderEntries();
+reflectAuthState();
+loadAndRender();

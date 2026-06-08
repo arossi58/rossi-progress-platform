@@ -17,8 +17,28 @@
       <span class="header-title">Progress Board</span>
     </header>
 
-    <!-- Add new progress entry -->
-    <section class="add-card">
+    <!-- Editor sign-in (only needed to ADD entries; viewers ignore this) -->
+    <section class="add-card" id="auth-card">
+      <h2 class="add-card-title">Editor Access</h2>
+      <p class="hint" id="auth-status">
+        To add entries you need a GitHub token. Viewers don't &mdash; they just see the board below.
+      </p>
+      <div class="field" id="token-field">
+        <label class="field-label" for="token">GitHub personal access token</label>
+        <input type="password" id="token" placeholder="ghp_..." autocomplete="off" />
+        <p class="hint">
+          Create one with <strong>Contents: Read and write</strong> access to this repo.
+          It's stored only in your browser (this device), never committed.
+        </p>
+      </div>
+      <div class="auth-actions">
+        <button type="button" class="btn-primary" id="save-token">Save token</button>
+        <button type="button" class="btn-delete" id="clear-token" hidden>Sign out</button>
+      </div>
+    </section>
+
+    <!-- Add new progress entry (shown only when signed in) -->
+    <section class="add-card" id="add-card" hidden>
       <h2 class="add-card-title">Add Progress</h2>
       <form id="entry-form" class="entry-form">
         <label class="field">
@@ -36,11 +56,11 @@
           <input type="file" id="files" name="files" accept="image/*,application/pdf" multiple />
         </label>
 
-        <button type="submit" class="btn-primary">Add Entry</button>
+        <button type="submit" class="btn-primary" id="submit-btn">Publish Entry</button>
       </form>
     </section>
 
-    <!-- Progress entries render here -->
+    <!-- Progress entries render here (visible to everyone) -->
     <section id="entries" class="entries"></section>
   </main>
 
