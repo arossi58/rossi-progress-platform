@@ -21,6 +21,11 @@ body {
   color: var(--black);
 }
 
+/* Make the `hidden` attribute win over flex/block display rules */
+[hidden] {
+  display: none !important;
+}
+
 /* ---- Page layout ---- */
 .page {
   position: relative;
@@ -32,11 +37,14 @@ body {
   gap: 37px;
 }
 
-/* ---- Editor icon button ---- */
+/* ---- Top bar / editor icon button ---- */
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -16px; /* tighten gap to header */
+}
+
 .icon-btn {
-  position: absolute;
-  top: 24px;
-  right: 24px;
   width: 44px;
   height: 44px;
   display: flex;
@@ -47,7 +55,6 @@ body {
   background: var(--white);
   color: var(--black);
   cursor: pointer;
-  z-index: 5;
 }
 
 .icon-btn:hover {
