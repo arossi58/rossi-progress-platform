@@ -141,6 +141,7 @@ saveTokenBtn.addEventListener("click", async () => {
 clearTokenBtn.addEventListener("click", () => {
   setToken("");
   closeModal();
+  loadAndRender(); // remove the Delete buttons for viewers
 });
 
 /* ---- GitHub API helpers ---- */
@@ -189,6 +190,31 @@ async function commitFile(path, base64Content, message, sha) {
     throw new Error(`GitHub API ${res.status}: ${detail}`);
   }
   return res.json();
+}
+
+/* DELETE a file from the repo (needs its blob sha). */
+async function deleteFile(path, sha, message) {
+  const res = await fetch(apiUrl(path), {
+    method: "DELETE",
+    headers: githubHeaders(),
+    body: JSON.stringify({ message, sha, branch: REPO.branch }),
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
+  }
+}
+
+/* Look up the current blob sha for a file path (null if it doesn't exist). */
+async function getFileSha(path) {
+  const res = await fetch(apiUrl(path), { headers: githubHeaders() });
+  if (!res.ok) return null;
+  return (await res.json()).sha;
+}
+
+/* Turn a stored raw URL back into its in-repo path. */
+function pathFromUrl(url) {
+  const prefix = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}/${REPO.branch}/`;
+  return url && url.startsWith(prefix) ? url.slice(prefix.length) : null;
 }
 
 /* Fetch the current entries.json + its sha (sha needed to update it). */
@@ -259,6 +285,8 @@ function renderEntries(entries) {
     return;
   }
 
+  const signedIn = !!getToken();
+
   entries.forEach((entry) => {
     const wrapper = document.createElement("article");
     wrapper.className = "entry";
@@ -266,6 +294,21 @@ function renderEntries(entries) {
     const week = document.createElement("h3");
     week.className = "entry-week";
     week.textContent = entry.week;
+
+    // Editors get a header row with a Delete button; viewers just see the title.
+    if (signedIn) {
+      const header = document.createElement("div");
+      header.className = "entry-header";
+      const del = document.createElement("button");
+      del.className = "btn-delete";
+      del.textContent = "Delete";
+      del.addEventListener("click", () => deleteEntry(entry));
+      header.appendChild(week);
+      header.appendChild(del);
+      wrapper.appendChild(header);
+    } else {
+      wrapper.appendChild(week);
+    }
 
     const desc = document.createElement("p");
     desc.className = "entry-description";
@@ -279,7 +322,6 @@ function renderEntries(entries) {
       files.classList.add("empty");
     }
 
-    wrapper.appendChild(week);
     wrapper.appendChild(desc);
     wrapper.appendChild(files);
     entriesEl.appendChild(wrapper);
@@ -293,6 +335,36 @@ async function loadAndRender() {
   } catch (err) {
     entriesEl.innerHTML =
       '<p class="hint">Could not load entries: ' + err.message + "</p>";
+  }
+}
+
+/* ---- Delete an entry (editors only) ---- */
+async function deleteEntry(entry) {
+  if (!getToken()) return;
+  if (!confirm(`Delete "${entry.week}"? This also removes its files.`)) return;
+
+  try {
+    // Remove each uploaded file
+    for (const f of entry.files || []) {
+      const path = pathFromUrl(f.url || "");
+      if (!path) continue;
+      const sha = await getFileSha(path);
+      if (sha) await deleteFile(path, sha, `Remove file ${f.name}`);
+    }
+
+    // Remove the entry from entries.json
+    const { entries, sha } = await fetchEntriesFile();
+    const updated = entries.filter((e) => e.id !== entry.id);
+    await commitFile(
+      DATA_PATH,
+      toBase64(JSON.stringify(updated, null, 2)),
+      `Delete progress entry: ${entry.week}`,
+      sha
+    );
+
+    renderEntries(updated);
+  } catch (err) {
+    alert("Delete failed:\n" + err.message);
   }
 }
 
