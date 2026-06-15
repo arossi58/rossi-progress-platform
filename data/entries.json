@@ -10,5 +10,47 @@
         "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1780884022148-0-brief.pdf"
       }
     ]
+  },
+  {
+    "id": "1781528796874",
+    "week": "Week 2",
+    "description": "While I deviated a bit from my proposed timeline, I realized it would help a lot to have the brand and marketing site solidified more before going too far into the weeds with all the other tools and gadgets I have planned. \n\nI got home page of the marketing site pretty far. I will be adding more to it, along with the other pages. The cards in the overview section are pretty lame, but I will make them cooler after this semester. \n\nThe live kanban board is working, it provides a public view of all the tasks for the github project. This shows transparency and gives users an idea of how active the project is. \n\nAdditionally, the marketing site is setup for theming, so you can pick which brand color you want and whether you want dark or light mode. Within the Docs tab is the embedded storybook. I customized the look so it matched the brand a bit better, and I embedded it in the site to help keep that \"one stop shop\", as most storybook sites open in a new tab. \n\nWithin the docs, there is a new introduction page and color page. There will be many more documentation pages to come!\n\nOh and last but not least, I got v1.0 published on NPM! https://www.npmjs.com/package/@ui-organized/react\n\nhttps://arossi58.github.io/ui-organized/",
+    "files": [
+      {
+        "name": "Screenshot 2026-06-15 at 8.06.10 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528787962-0-Screenshot_2026-06-15_at_8.06.10_AM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-15 at 8.05.45 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528789286-1-Screenshot_2026-06-15_at_8.05.45_AM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-15 at 8.05.33 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528790600-2-Screenshot_2026-06-15_at_8.05.33_AM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-15 at 8.05.27 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528791664-3-Screenshot_2026-06-15_at_8.05.27_AM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-15 at 8.05.18 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528792802-4-Screenshot_2026-06-15_at_8.05.18_AM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-15 at 8.05.02 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528794287-5-Screenshot_2026-06-15_at_8.05.02_AM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-15 at 8.04.53 AM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528795618-6-Screenshot_2026-06-15_at_8.04.53_AM.png"
+      }
+    ]
   }
 ]
