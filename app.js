@@ -42,6 +42,154 @@ const addCard = document.getElementById("add-card");
 const form = document.getElementById("entry-form");
 const submitBtn = document.getElementById("submit-btn");
 const entriesEl = document.getElementById("entries");
+const editorEl = document.getElementById("description");
+const rteToolbar = document.querySelector(".rte-toolbar");
+
+/* ---- Rich text editor (description) ---- */
+/* The toolbar drives a contenteditable region via execCommand. Native
+   keyboard shortcuts (Ctrl/Cmd+B/I/U) work without extra wiring. */
+function initRichTextEditor() {
+  if (!rteToolbar || !editorEl) return;
+
+  rteToolbar.addEventListener("click", (e) => {
+    const btn = e.target.closest(".rte-btn");
+    if (!btn) return;
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    editorEl.focus();
+
+    if (cmd === "createLink") {
+      const url = prompt("Link URL:", "https://");
+      if (url) document.execCommand("createLink", false, url);
+    } else if (cmd === "formatBlock") {
+      // Toggle heading: if already a heading, drop back to a paragraph.
+      const block = document.queryCommandValue("formatBlock");
+      const toHeading = !/^h\d$/i.test(block);
+      document.execCommand("formatBlock", false, toHeading ? btn.dataset.value : "p");
+    } else {
+      document.execCommand(cmd, false, null);
+    }
+    updateToolbarState();
+  });
+
+  // Reflect active formatting on the toolbar buttons.
+  ["keyup", "mouseup", "input"].forEach((evt) =>
+    editorEl.addEventListener(evt, updateToolbarState)
+  );
+}
+
+function updateToolbarState() {
+  if (!rteToolbar) return;
+  rteToolbar.querySelectorAll(".rte-btn").forEach((btn) => {
+    const cmd = btn.dataset.cmd;
+    let on = false;
+    try {
+      if (cmd === "bold" || cmd === "italic" || cmd === "underline") {
+        on = document.queryCommandState(cmd);
+      } else if (cmd === "insertUnorderedList" || cmd === "insertOrderedList") {
+        on = document.queryCommandState(cmd);
+      } else if (cmd === "formatBlock") {
+        on = /^h\d$/i.test(document.queryCommandValue("formatBlock"));
+      }
+    } catch (_) {
+      /* queryCommandState can throw when the editor isn't focused */
+    }
+    btn.classList.toggle("active", on);
+  });
+}
+
+/* Read the editor's content, returning "" when it's visually empty so the
+   required-field check below behaves like the old textarea. */
+function getEditorHtml() {
+  const html = editorEl.innerHTML.trim();
+  const text = editorEl.textContent.replace(/ /g, " ").trim();
+  const hasMedia = /<img\b/i.test(html);
+  if (!text && !hasMedia) return "";
+  return html;
+}
+
+function clearEditor() {
+  editorEl.innerHTML = "";
+}
+
+/* ---- Description sanitizing + rendering ---- */
+const ALLOWED_TAGS = {
+  A: ["href"],
+  B: [], STRONG: [], I: [], EM: [], U: [],
+  P: [], BR: [], DIV: [], SPAN: [],
+  UL: [], OL: [], LI: [],
+  H1: [], H2: [], H3: [], BLOCKQUOTE: [], CODE: [], PRE: [],
+};
+
+/* Turn untrusted HTML into a safe DocumentFragment: drop scripts/styles,
+   unwrap unknown tags, strip every attribute except an allow-list, and
+   neutralize javascript: links. */
+function sanitizeHtml(html) {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+
+  const walk = (node) => {
+    [...node.childNodes].forEach((child) => {
+      if (child.nodeType === Node.COMMENT_NODE) {
+        child.remove();
+        return;
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+
+      const tag = child.tagName;
+      if (tag === "SCRIPT" || tag === "STYLE") {
+        child.remove();
+        return;
+      }
+      if (!ALLOWED_TAGS[tag]) {
+        // Unwrap: keep the (sanitized) children, drop the element itself.
+        while (child.firstChild) node.insertBefore(child.firstChild, child);
+        child.remove();
+        return;
+      }
+
+      const allowedAttrs = ALLOWED_TAGS[tag];
+      [...child.attributes].forEach((attr) => {
+        if (!allowedAttrs.includes(attr.name.toLowerCase())) {
+          child.removeAttribute(attr.name);
+        }
+      });
+
+      if (tag === "A") {
+        const href = child.getAttribute("href") || "";
+        if (/^\s*(javascript|data):/i.test(href)) {
+          child.removeAttribute("href");
+        } else if (href) {
+          child.setAttribute("target", "_blank");
+          child.setAttribute("rel", "noopener noreferrer");
+        }
+      }
+
+      walk(child);
+    });
+  };
+
+  walk(tpl.content);
+  return tpl.content;
+}
+
+/* Render a stored description into an element. New entries are sanitized
+   HTML; legacy plain-text entries keep their line breaks. */
+function renderDescription(text) {
+  const el = document.createElement("div");
+  el.className = "entry-description";
+  const value = text || "";
+
+  if (/<[a-z][\s\S]*>/i.test(value)) {
+    el.appendChild(sanitizeHtml(value));
+  } else {
+    value.split("\n").forEach((line, i) => {
+      if (i) el.appendChild(document.createElement("br"));
+      el.appendChild(document.createTextNode(line));
+    });
+  }
+  return el;
+}
 
 /* ---- Token handling ---- */
 function getToken() {
@@ -236,21 +384,29 @@ async function fetchEntriesFile() {
 }
 
 /* ---- Rendering ---- */
-function renderFile(file) {
+function isImageFile(file) {
+  return !!(file.type && file.type.startsWith("image/"));
+}
+
+/* `gallery` is the entry's list of image files; `galleryIndex` is this
+   file's position within it (used to open the lightbox at the right slide). */
+function renderFile(file, gallery, galleryIndex) {
   const item = document.createElement("div");
   item.className = "file-item";
   const url = file.url || file.data; // url = repo path, data = legacy fallback
 
-  if (file.type && file.type.startsWith("image/")) {
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener";
+  if (isImageFile(file)) {
+    const thumb = document.createElement("button");
+    thumb.type = "button";
+    thumb.className = "file-thumb";
+    thumb.setAttribute("aria-label", `View photo: ${file.name}`);
     const img = document.createElement("img");
     img.src = url;
     img.alt = file.name;
-    link.appendChild(img);
-    item.appendChild(link);
+    img.loading = "lazy";
+    thumb.appendChild(img);
+    thumb.addEventListener("click", () => openLightbox(gallery, galleryIndex));
+    item.appendChild(thumb);
   } else {
     const link = document.createElement("a");
     link.href = url;
@@ -310,14 +466,20 @@ function renderEntries(entries) {
       wrapper.appendChild(week);
     }
 
-    const desc = document.createElement("p");
-    desc.className = "entry-description";
-    desc.textContent = entry.description;
+    const desc = renderDescription(entry.description);
 
     const files = document.createElement("div");
     files.className = "entry-files";
     if (entry.files && entry.files.length) {
-      entry.files.forEach((f) => files.appendChild(renderFile(f)));
+      // Build this entry's photo gallery so the lightbox can page through it.
+      const gallery = entry.files
+        .filter(isImageFile)
+        .map((f) => ({ url: f.url || f.data, name: f.name }));
+      let galleryIndex = 0;
+      entry.files.forEach((f) => {
+        const idx = isImageFile(f) ? galleryIndex++ : -1;
+        files.appendChild(renderFile(f, gallery, idx));
+      });
     } else {
       files.classList.add("empty");
     }
@@ -381,8 +543,14 @@ form.addEventListener("submit", async (e) => {
   }
 
   const week = document.getElementById("week").value.trim();
-  const description = document.getElementById("description").value.trim();
+  const description = getEditorHtml();
   const fileInput = document.getElementById("files");
+
+  if (!description) {
+    alert("Please add a description.");
+    editorEl.focus();
+    return;
+  }
 
   submitBtn.disabled = true;
   submitBtn.textContent = "Publishing…";
@@ -415,6 +583,7 @@ form.addEventListener("submit", async (e) => {
     );
 
     form.reset();
+    clearEditor();
     renderEntries(entries);
     alert("Published! It may take a moment to appear for other viewers.");
   } catch (err) {
@@ -425,6 +594,65 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+/* ---- Lightbox gallery ---- */
+const lightboxEl = document.getElementById("lightbox");
+const lbImg = document.getElementById("lb-img");
+const lbCaption = document.getElementById("lb-caption");
+const lbCounter = document.getElementById("lb-counter");
+const lbClose = document.getElementById("lb-close");
+const lbPrev = document.getElementById("lb-prev");
+const lbNext = document.getElementById("lb-next");
+
+let lbGallery = [];
+let lbIndex = 0;
+
+function showLightboxSlide() {
+  const item = lbGallery[lbIndex];
+  if (!item) return;
+  lbImg.src = item.url;
+  lbImg.alt = item.name || "";
+  lbCaption.textContent = item.name || "";
+  lbCounter.textContent = `${lbIndex + 1} / ${lbGallery.length}`;
+}
+
+function openLightbox(gallery, index) {
+  if (!gallery || !gallery.length) return;
+  lbGallery = gallery;
+  lbIndex = Math.max(0, index);
+  lightboxEl.classList.toggle("single", gallery.length < 2);
+  showLightboxSlide();
+  lightboxEl.hidden = false;
+}
+
+function closeLightbox() {
+  lightboxEl.hidden = true;
+  lbImg.src = "";
+  lbGallery = [];
+}
+
+function stepLightbox(delta) {
+  if (lbGallery.length < 2) return;
+  lbIndex = (lbIndex + delta + lbGallery.length) % lbGallery.length;
+  showLightboxSlide();
+}
+
+lbClose.addEventListener("click", closeLightbox);
+lbPrev.addEventListener("click", () => stepLightbox(-1));
+lbNext.addEventListener("click", () => stepLightbox(1));
+lightboxEl.addEventListener("click", (e) => {
+  // Click on the dark backdrop (not the image or a control) closes it.
+  if (e.target === lightboxEl || e.target.classList.contains("lb-figure")) {
+    closeLightbox();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (lightboxEl.hidden) return;
+  if (e.key === "Escape") closeLightbox();
+  else if (e.key === "ArrowLeft") stepLightbox(-1);
+  else if (e.key === "ArrowRight") stepLightbox(1);
+});
+
 /* ---- Init ---- */
+initRichTextEditor();
 reflectAuthState();
 loadAndRender();

@@ -37,10 +37,24 @@
           <input type="text" id="week" name="week" placeholder="e.g. Week 1" required />
         </label>
 
-        <label class="field">
+        <div class="field">
           <span class="field-label">Description</span>
-          <textarea id="description" name="description" rows="3" placeholder="Description of this week's progress" required></textarea>
-        </label>
+          <div class="rte">
+            <div class="rte-toolbar" role="toolbar" aria-label="Text formatting">
+              <button type="button" class="rte-btn" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><b>B</b></button>
+              <button type="button" class="rte-btn" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><i>I</i></button>
+              <button type="button" class="rte-btn" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline"><u>U</u></button>
+              <span class="rte-sep" aria-hidden="true"></span>
+              <button type="button" class="rte-btn" data-cmd="formatBlock" data-value="h3" title="Heading" aria-label="Heading">H</button>
+              <button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list">&bull;&nbsp;List</button>
+              <button type="button" class="rte-btn" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">1.&nbsp;List</button>
+              <span class="rte-sep" aria-hidden="true"></span>
+              <button type="button" class="rte-btn" data-cmd="createLink" title="Add link" aria-label="Add link">🔗</button>
+              <button type="button" class="rte-btn" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting">✕</button>
+            </div>
+            <div id="description" class="rte-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Description of this week's progress"></div>
+          </div>
+        </div>
 
         <label class="field">
           <span class="field-label">Files (images &amp; PDFs)</span>
@@ -80,6 +94,18 @@
         <button class="btn-delete" id="clear-token" type="button">Sign out</button>
       </div>
     </div>
+  </div>
+
+  <!-- Photo gallery lightbox -->
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+    <button class="lb-close" id="lb-close" type="button" aria-label="Close">&times;</button>
+    <button class="lb-nav lb-prev" id="lb-prev" type="button" aria-label="Previous photo">&#8249;</button>
+    <figure class="lb-figure">
+      <img id="lb-img" class="lb-img" alt="" />
+      <figcaption id="lb-caption" class="lb-caption"></figcaption>
+    </figure>
+    <button class="lb-nav lb-next" id="lb-next" type="button" aria-label="Next photo">&#8250;</button>
+    <div id="lb-counter" class="lb-counter" aria-live="polite"></div>
   </div>
 
   <script src="app.js"></script>
