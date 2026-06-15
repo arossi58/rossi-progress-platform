@@ -44,6 +44,16 @@ const submitBtn = document.getElementById("submit-btn");
 const entriesEl = document.getElementById("entries");
 const editorEl = document.getElementById("description");
 const rteToolbar = document.querySelector(".rte-toolbar");
+const addCardTitle = document.getElementById("add-card-title");
+const weekInput = document.getElementById("week");
+const filesInput = document.getElementById("files");
+const filesLabel = document.getElementById("files-label");
+const existingFilesField = document.getElementById("existing-files-field");
+const existingFilesEl = document.getElementById("existing-files");
+const cancelEditBtn = document.getElementById("cancel-edit-btn");
+
+/* The entry currently being edited (null = composing a brand-new entry). */
+let editingEntry = null;
 
 /* ---- Rich text editor (description) ---- */
 /* The toolbar drives a contenteditable region via execCommand. Native
@@ -451,16 +461,28 @@ function renderEntries(entries) {
     week.className = "entry-week";
     week.textContent = entry.week;
 
-    // Editors get a header row with a Delete button; viewers just see the title.
+    // Editors get a header row with Edit/Delete buttons; viewers just see the title.
     if (signedIn) {
       const header = document.createElement("div");
       header.className = "entry-header";
+
+      const actions = document.createElement("div");
+      actions.className = "entry-actions";
+
+      const edit = document.createElement("button");
+      edit.className = "btn-delete";
+      edit.textContent = "Edit";
+      edit.addEventListener("click", () => startEdit(entry));
+
       const del = document.createElement("button");
       del.className = "btn-delete";
       del.textContent = "Delete";
       del.addEventListener("click", () => deleteEntry(entry));
+
+      actions.appendChild(edit);
+      actions.appendChild(del);
       header.appendChild(week);
-      header.appendChild(del);
+      header.appendChild(actions);
       wrapper.appendChild(header);
     } else {
       wrapper.appendChild(week);
@@ -530,9 +552,112 @@ async function deleteEntry(entry) {
   }
 }
 
-/* ---- Publish a new entry ---- */
+/* ---- Edit an existing entry (editors only) ---- */
+/* URLs of the editing entry's files the user has marked for removal. */
+const filesToRemove = new Set();
+
+function fileKey(f) {
+  return f.url || f.data || "";
+}
+
+/* Show the editing entry's current files, each with a Remove/Undo toggle. */
+function renderExistingFilesUI(entry) {
+  existingFilesEl.innerHTML = "";
+  const files = entry.files || [];
+  if (!files.length) {
+    existingFilesField.hidden = true;
+    return;
+  }
+  existingFilesField.hidden = false;
+
+  files.forEach((f) => {
+    const key = fileKey(f);
+    const row = document.createElement("div");
+    row.className = "existing-file";
+
+    const name = document.createElement("span");
+    name.className = "existing-file-name";
+    name.textContent = f.name;
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "existing-file-toggle";
+    toggle.textContent = "Remove";
+    toggle.addEventListener("click", () => {
+      if (filesToRemove.has(key)) {
+        filesToRemove.delete(key);
+        row.classList.remove("removing");
+        toggle.textContent = "Remove";
+      } else {
+        filesToRemove.add(key);
+        row.classList.add("removing");
+        toggle.textContent = "Undo";
+      }
+    });
+
+    row.appendChild(name);
+    row.appendChild(toggle);
+    existingFilesEl.appendChild(row);
+  });
+}
+
+/* Load an entry into the form for editing. */
+function startEdit(entry) {
+  if (!getToken()) return;
+  editingEntry = entry;
+  filesToRemove.clear();
+
+  addCardTitle.textContent = "Edit Progress";
+  submitBtn.textContent = "Update Entry";
+  cancelEditBtn.hidden = false;
+  filesLabel.textContent = "Add more files (images & PDFs)";
+
+  weekInput.value = entry.week || "";
+  // Reuse the (already-sanitized) render path so the editor shows formatted,
+  // editable content — and legacy plain text keeps its line breaks.
+  editorEl.innerHTML = renderDescription(entry.description).innerHTML;
+
+  renderExistingFilesUI(entry);
+  filesInput.value = "";
+
+  addCard.hidden = false;
+  addCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  editorEl.focus();
+}
+
+/* Return the form to "add a new entry" state. */
+function exitEditMode() {
+  editingEntry = null;
+  filesToRemove.clear();
+  addCardTitle.textContent = "Add Progress";
+  submitBtn.textContent = "Publish Entry";
+  cancelEditBtn.hidden = true;
+  filesLabel.textContent = "Files (images & PDFs)";
+  existingFilesField.hidden = true;
+  existingFilesEl.innerHTML = "";
+  form.reset();
+  clearEditor();
+}
+
+cancelEditBtn.addEventListener("click", exitEditMode);
+
+/* ---- Publish / update an entry ---- */
 function safeName(name) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+/* Upload the chosen files into uploads/ and return their entry refs. */
+async function uploadSelectedFiles(fileList) {
+  const refs = [];
+  let i = 0;
+  for (const file of fileList) {
+    const stamp = `${Date.now()}-${i++}`;
+    const path = `${UPLOAD_DIR}/${stamp}-${safeName(file.name)}`;
+    const base64 = await readFileAsBase64(file);
+    await commitFile(path, base64, `Add file ${file.name}`);
+    refs.push({ name: file.name, type: file.type, url: rawUrl(path) });
+  }
+  return refs;
 }
 
 form.addEventListener("submit", async (e) => {
@@ -542,9 +667,8 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  const week = document.getElementById("week").value.trim();
+  const week = weekInput.value.trim();
   const description = getEditorHtml();
-  const fileInput = document.getElementById("files");
 
   if (!description) {
     alert("Please add a description.");
@@ -552,45 +676,72 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
+  const isEdit = !!editingEntry;
   submitBtn.disabled = true;
-  submitBtn.textContent = "Publishing…";
+  submitBtn.textContent = isEdit ? "Updating…" : "Publishing…";
 
   try {
-    // 1) Upload each file into uploads/
-    const fileRefs = [];
-    let i = 0;
-    for (const file of fileInput.files) {
-      const stamp = `${Date.now()}-${i++}`;
-      const path = `${UPLOAD_DIR}/${stamp}-${safeName(file.name)}`;
-      const base64 = await readFileAsBase64(file);
-      await commitFile(path, base64, `Add file ${file.name}`);
-      fileRefs.push({ name: file.name, type: file.type, url: rawUrl(path) });
+    // 1) Upload any newly chosen files.
+    const newRefs = await uploadSelectedFiles(filesInput.files);
+
+    // 2) Update entries.json.
+    const { entries, sha } = await fetchEntriesFile();
+    let updated;
+
+    if (isEdit) {
+      // Delete the files the editor marked for removal.
+      const removed = (editingEntry.files || []).filter((f) =>
+        filesToRemove.has(fileKey(f))
+      );
+      for (const f of removed) {
+        const path = pathFromUrl(f.url || "");
+        if (!path) continue;
+        const fileSha = await getFileSha(path);
+        if (fileSha) await deleteFile(path, fileSha, `Remove file ${f.name}`);
+      }
+
+      const keptFiles = (editingEntry.files || []).filter(
+        (f) => !filesToRemove.has(fileKey(f))
+      );
+      updated = entries.map((en) =>
+        en.id === editingEntry.id
+          ? { ...en, week, description, files: keptFiles.concat(newRefs) }
+          : en
+      );
+      await commitFile(
+        DATA_PATH,
+        toBase64(JSON.stringify(updated, null, 2)),
+        `Edit progress entry: ${week}`,
+        sha
+      );
+    } else {
+      entries.push({
+        id: Date.now().toString(),
+        week,
+        description,
+        files: newRefs,
+      });
+      updated = entries;
+      await commitFile(
+        DATA_PATH,
+        toBase64(JSON.stringify(updated, null, 2)),
+        `Add progress entry: ${week}`,
+        sha
+      );
     }
 
-    // 2) Append the entry to entries.json and commit it
-    const { entries, sha } = await fetchEntriesFile();
-    entries.push({
-      id: Date.now().toString(),
-      week,
-      description,
-      files: fileRefs,
-    });
-    await commitFile(
-      DATA_PATH,
-      toBase64(JSON.stringify(entries, null, 2)),
-      `Add progress entry: ${week}`,
-      sha
+    exitEditMode();
+    renderEntries(updated);
+    alert(
+      isEdit
+        ? "Updated! It may take a moment to refresh for other viewers."
+        : "Published! It may take a moment to appear for other viewers."
     );
-
-    form.reset();
-    clearEditor();
-    renderEntries(entries);
-    alert("Published! It may take a moment to appear for other viewers.");
   } catch (err) {
-    alert("Publish failed:\n" + err.message);
+    alert((isEdit ? "Update" : "Publish") + " failed:\n" + err.message);
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "Publish Entry";
+    submitBtn.textContent = editingEntry ? "Update Entry" : "Publish Entry";
   }
 });
 

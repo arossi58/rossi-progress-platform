@@ -30,7 +30,7 @@
 
     <!-- Add new progress entry (shown only when signed in) -->
     <section class="add-card" id="add-card" hidden>
-      <h2 class="add-card-title">Add Progress</h2>
+      <h2 class="add-card-title" id="add-card-title">Add Progress</h2>
       <form id="entry-form" class="entry-form">
         <label class="field">
           <span class="field-label">Week</span>
@@ -56,12 +56,21 @@
           </div>
         </div>
 
+        <!-- Existing files (edit mode only): toggle which to keep -->
+        <div class="field" id="existing-files-field" hidden>
+          <span class="field-label">Current files</span>
+          <div id="existing-files" class="existing-files"></div>
+        </div>
+
         <label class="field">
-          <span class="field-label">Files (images &amp; PDFs)</span>
+          <span class="field-label" id="files-label">Files (images &amp; PDFs)</span>
           <input type="file" id="files" name="files" accept="image/*,application/pdf" multiple />
         </label>
 
-        <button type="submit" class="btn-primary" id="submit-btn">Publish Entry</button>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="submit-btn">Publish Entry</button>
+          <button type="button" class="btn-delete" id="cancel-edit-btn" hidden>Cancel</button>
+        </div>
       </form>
     </section>
 
