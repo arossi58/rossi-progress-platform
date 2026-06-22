@@ -52,5 +52,27 @@
         "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1781528795618-6-Screenshot_2026-06-15_at_8.04.53_AM.png"
       }
     ]
+  },
+  {
+    "id": "1782094660299",
+    "week": "Week 3",
+    "description": "So far there has been a lot of work behind the scenes. I got two of my figma plugins approved, I was in a rush to get them out because some people online were reporting weeks to get approval, luckily mine were approved the next day. You can check them out at&nbsp;<a href=\"https://www.figma.com/@andrewrossi\">https://www.figma.com/@andrewrossi</a><div><br></div><div>I also switched the component primitive library I was using from Base ui to Ark UI. This was annoying but necessary as Ark UI has a lot more primitives, and it already supports multiple frameworks, while Base UI is just for React. I hope to expand this beyond React, so I will essentially get React, Vue, and Svelte for little extra effort.&nbsp;</div><div><br></div><div>I also spent a lot of time troubleshooting and fixing the small things to make the experience complete. The theme export and import to figma needed some work when it came to typography variables and scoping variables in general. I also added some global typography classes and added typography page to the docs.&nbsp;</div><div><br></div><div>Finally, as we discussed in class, I improved the overview section to include more details for each facet of the design system. Plus I updated the animations</div>",
+    "files": [
+      {
+        "name": "Screenshot 2026-06-21 at 9.11.16 PM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1782094654575-0-Screenshot_2026-06-21_at_9.11.16_PM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-21 at 9.11.11 PM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1782094657073-1-Screenshot_2026-06-21_at_9.11.11_PM.png"
+      },
+      {
+        "name": "Screenshot 2026-06-21 at 9.11.03 PM.png",
+        "type": "image/png",
+        "url": "https://raw.githubusercontent.com/arossi58/rossi-progress-platform/main/uploads/1782094658743-2-Screenshot_2026-06-21_at_9.11.03_PM.png"
+      }
+    ]
   }
 ]
